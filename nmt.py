@@ -2568,7 +2568,7 @@ def pred_probs(f_log_probs, prepare_data, options, iterator, verbose=False, **kw
 	else:
 		return numpy.array(probs)
 
-def create_data(f_log_probs_beam, prepare_data, options, iterator, maxlen, **kwargs):
+def create_data(f_log_probs_beam, prepare_data, options, iterator, maxlen, folderName, **kwargs):
 	#data = []
 	nb_examples = 20000
 	data = numpy.zeros([nb_examples, options['dim_word']])
@@ -2605,12 +2605,10 @@ def create_data(f_log_probs_beam, prepare_data, options, iterator, maxlen, **kwa
 					correct_total += t
 				else:
 					str_t += '--'
-			print str_t
-		print correct_total/y_mask.sum()
-		#print list_target
-		#print correct_pred
-		print '**********************'
-	numpy.savez('beam_data.npz', data[:idx_d], list_target[:idx_d])
+		# 	print str_t
+		# print correct_total/y_mask.sum()
+		# print '**********************'
+	numpy.savez(folderName + '_beam_data.npz', data[:idx_d], list_target[:idx_d])
 
 
 		
@@ -2860,6 +2858,7 @@ def train(rng=123,
 		  use_dropout=False,
 		  reload_=False,
 		  save_inter=False,
+		  create_data_beam=False,
 		  **kwargs):
 
 	# Model options
@@ -3018,8 +3017,10 @@ def train(rng=123,
 	bad_counter = 0
 
 	########################################################################
-	if model_options['decoder'] == 'gru_cond_legacy' and reload_:
-		create_data(f_log_probs_beam, prepare_data, model_options, train, maxlen)
+	if create_data_beam and reload_:
+		create_data(f_log_probs_beam, prepare_data, model_options, train, maxlen, 'train')
+		create_data(f_log_probs_beam, prepare_data, model_options, valid, maxlen, 'valid')
+		create_data(f_log_probs_beam, prepare_data, model_options, other, maxlen, 'test')
 		sys.exit("data created")
 	########################################################################
 
