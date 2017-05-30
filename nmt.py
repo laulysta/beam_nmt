@@ -2570,7 +2570,7 @@ def pred_probs(f_log_probs, prepare_data, options, iterator, verbose=False, **kw
 
 def create_data(f_log_probs_beam, prepare_data, options, iterator, maxlen, folderName, **kwargs):
 	#data = []
-	nb_examples = 20000
+	nb_examples = 45000000
 	data = numpy.zeros([nb_examples, options['dim_word']])
 	list_target = numpy.zeros(nb_examples)
 	idx_d = 0
