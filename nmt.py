@@ -2744,7 +2744,6 @@ def pred_model_beam(f_create_data_beam, f_pred_beam, prepare_data, options, iter
 		cost_beam, preds = f_pred_beam(data[:idx_d], list_target[:idx_d])
 		nb_errors += numpy.absolute(preds-list_target[:idx_d]).sum()
 		nb_total += idx_d
-		break
 	
 	return nb_errors/float(nb_total)
 		
