@@ -2007,6 +2007,47 @@ def init_params(options):
 
 	return params
 
+def param_init_beam_model(options, nin=None):
+	rng = numpy.random.RandomState(options['rng'])
+	params = OrderedDict()
+
+	W_0 = norm_weight(nin, nin, rng=rng)
+	params['beam_W_0'] = W_0
+	params['beam_b_0'] = numpy.zeros((nin,)).astype('float32')
+
+	# for t in range(options['nb_layers_tnn'] - 1):
+	#     wName = 'W_' + str(t + 1)
+	#     W = init_weight(nhid, nhid)
+	#     params[_p(prefix, wName)] = W
+	#     bName = 'b_' + str(t + 1)
+	#     params[_p(prefix, bName)] = numpy.zeros((nhid,)).astype('float32')
+
+	V = norm_weight(nin, 1, rng=rng)
+	params['beam_V'] = V
+	params['beam_c'] = numpy.zeros((1,)).astype('float32')
+
+	return params
+
+def build_beam_model(tparams, options, activ='lambda x: tensor.tanh(x)'):
+
+	x = tensor.matrix('x', dtype='float32')
+	y = tensor.vector('y', dtype='float32')
+
+
+	h = eval(activ)(tensor.dot(x, tparams['beam_W_0']) + tparams['beam_b_0'])
+
+	# for t in range(options['nb_layers_tnn'] - 1):
+	#     wName = 'W_' + str(t + 1)
+	#     bName = 'b_' + str(t + 1)
+	#     h = eval(activ)(tensor.dot(h, tparams[_p(prefix, wName)]) + tparams[_p(prefix, bName)])
+
+
+	probs = tensor.nnet.sigmoid(tensor.dot(h, tparams['beam_V']) + tparams['beam_c']).T
+
+	# cost
+	cost_beam = -(y*(tensor.log(probs)) + ((1-y)*tensor.log(1-probs)))
+
+	return x, y, cost_beam, probs.round()
 
 # build a training model
 def build_model(tparams, options):
@@ -2569,11 +2610,55 @@ def pred_probs(f_log_probs, prepare_data, options, iterator, verbose=False, **kw
 		return numpy.array(probs)
 
 def create_data(f_log_probs_beam, prepare_data, options, iterator, maxlen, folderName, **kwargs):
-	#data = []
-	nb_examples = 45000000
-	data = numpy.zeros([nb_examples, options['dim_word']])
-	list_target = numpy.zeros(nb_examples)
-	idx_d = 0
+	
+	with open(folderName + '_beam_data.txt', 'w') as f_data, open(folderName + '_target.txt', 'w') as f_target:
+		#nb_examples = 45000000
+		#data = numpy.zeros([nb_examples, options['dim_word']])
+		#list_target = numpy.zeros(nb_examples)
+		idx_d = 0
+		for x, y in iterator:
+
+			x, x_mask, y, y_mask = prepare_data(x, y, maxlen=maxlen,
+												n_words_src=options['n_words_src'],
+												n_words=options['n_words'])
+
+			if x is None:
+					print 'Minibatch with zero sample under length ', maxlen
+					#uidx -= 1
+					continue
+
+			pprobs, logit_h, correct_pred = f_log_probs_beam(x, x_mask, y, y_mask)
+
+			n_words = logit_h.shape[0]
+			n_samples = logit_h.shape[1]
+			idx_t = 0
+			correct_total = 0
+			for i in range(n_words):
+				str_t = ''
+				for j in range(n_samples):
+					if y_mask[i,j] == 1.0 :
+						t = 1 if correct_pred[idx_t] == 0 else 0
+						f_target.write(str(t) + '\n')
+						f_data.write(' '.join(map(str, logit_h[i,j])) + '\n')
+						#list_target[idx_d] = t
+						#data[idx_d,:] = logit_h[i,j]
+						idx_d += 1
+						idx_t += 1	
+						str_t += str(t) + ' '
+						correct_total += t
+					else:
+						str_t += '--'
+			# 	print str_t
+			# print correct_total/y_mask.sum()
+			# print '**********************'
+		#numpy.savez(folderName + '_beam_data.npz', data[:idx_d], list_target[:idx_d])
+
+def train_model_beam(f_create_data_beam, f_grad_shared_beam, f_update_beam, prepare_data, options, iterator, maxlen, **kwargs):
+	lrate = options['lrate']
+
+	nb_examples = options['batch_size']*maxlen
+	data = numpy.zeros([nb_examples, options['dim_word']], dtype='float32')
+	list_target = numpy.zeros(nb_examples, dtype='float32')
 	for x, y in iterator:
 
 		x, x_mask, y, y_mask = prepare_data(x, y, maxlen=maxlen,
@@ -2585,33 +2670,85 @@ def create_data(f_log_probs_beam, prepare_data, options, iterator, maxlen, folde
 				#uidx -= 1
 				continue
 
-		pprobs, logit_h, correct_pred = f_log_probs_beam(x, x_mask, y, y_mask)
+		pprobs, logit_h, correct_pred = f_create_data_beam(x, x_mask, y, y_mask)
 
 		n_words = logit_h.shape[0]
 		n_samples = logit_h.shape[1]
+		idx_d = 0
 		idx_t = 0
 		correct_total = 0
 		for i in range(n_words):
 			str_t = ''
 			for j in range(n_samples):
 				if y_mask[i,j] == 1.0 :
-					t = 1 if correct_pred[idx_t] == 0 else 0
+					t = 1.0 if correct_pred[idx_t] == 0 else 0.0
+					#f_target.write(str(t) + '\n')
+					#f_data.write(' '.join(map(str, logit_h[i,j])) + '\n')
 					list_target[idx_d] = t
-					data[idx_d,:] = logit_h[i,j]
+					data[idx_d,:] = logit_h[i,j].view('float32')
 					idx_d += 1
-					idx_t += 1
-					#y_total += 1
+					idx_t += 1	
 					str_t += str(t) + ' '
 					correct_total += t
 				else:
 					str_t += '--'
-		# 	print str_t
-		# print correct_total/y_mask.sum()
-		# print '**********************'
-	numpy.savez(folderName + '_beam_data.npz', data[:idx_d], list_target[:idx_d])
+			#print str_t
 
-
+		cost = f_grad_shared_beam(data[:idx_d], list_target[:idx_d])
+		f_update_beam(lrate)
 		
+
+def pred_model_beam(f_create_data_beam, f_pred_beam, prepare_data, options, iterator, maxlen, **kwargs):
+	lrate = options['lrate']
+
+	nb_examples = options['batch_size']*maxlen
+	data = numpy.zeros([nb_examples, options['dim_word']], dtype='float32')
+	list_target = numpy.zeros(nb_examples, dtype='float32')
+	nb_errors = 0
+	nb_total = 0
+	for x, y in iterator:
+
+		x, x_mask, y, y_mask = prepare_data(x, y, maxlen=maxlen,
+											n_words_src=options['n_words_src'],
+											n_words=options['n_words'])
+
+		if x is None:
+				print 'Minibatch with zero sample under length ', maxlen
+				#uidx -= 1
+				continue
+
+		pprobs, logit_h, correct_pred = f_create_data_beam(x, x_mask, y, y_mask)
+
+		n_words = logit_h.shape[0]
+		n_samples = logit_h.shape[1]
+		idx_d = 0
+		idx_t = 0
+		correct_total = 0
+		for i in range(n_words):
+			str_t = ''
+			for j in range(n_samples):
+				if y_mask[i,j] == 1.0 :
+					t = 1.0 if correct_pred[idx_t] == 0 else 0.0
+					#f_target.write(str(t) + '\n')
+					#f_data.write(' '.join(map(str, logit_h[i,j])) + '\n')
+					list_target[idx_d] = t
+					data[idx_d,:] = logit_h[i,j].view('float32')
+					idx_d += 1
+					idx_t += 1	
+					str_t += str(t) + ' '
+					correct_total += t
+				else:
+					str_t += '--'
+			#print str_t
+
+		cost_beam, preds = f_pred_beam(data[:idx_d], list_target[:idx_d])
+		nb_errors += numpy.absolute(preds-list_target[:idx_d]).sum()
+		nb_total += idx_d
+		break
+	
+	return nb_errors/float(nb_total)
+		
+
 
 def greedy_decoding(options, reference, iterator, worddicts_r, tparams, prepare_data, gen_sample_2, f_init_2, f_next_2, trng, multibleu, fname, maxlen=200, verbose=False):
 	n_done = 0
@@ -2858,7 +2995,8 @@ def train(rng=123,
 		  use_dropout=False,
 		  reload_=False,
 		  save_inter=False,
-		  create_data_beam=False,
+		  train_beam_model=False,
+		  use_beam_model=False,
 		  **kwargs):
 
 	# Model options
@@ -2934,7 +3072,8 @@ def train(rng=123,
 	# before any regularizer
 	print 'Building f_log_probs...',
 	f_log_probs = theano.function(inps, cost, profile=profile)
-	f_log_probs_beam = theano.function(inps, [cost, logit_h, correct_pred], profile=profile)
+	if train_beam_model or use_beam_model:
+		f_create_data_beam = theano.function(inps, [cost, logit_h, correct_pred], profile=profile)
 	print 'Done'
 
 	cost = cost.mean()
@@ -3017,11 +3156,36 @@ def train(rng=123,
 	bad_counter = 0
 
 	########################################################################
-	if create_data_beam and reload_:
-		create_data(f_log_probs_beam, prepare_data, model_options, train, maxlen, 'train')
-		create_data(f_log_probs_beam, prepare_data, model_options, valid, maxlen, 'valid')
-		create_data(f_log_probs_beam, prepare_data, model_options, other, maxlen, 'test')
-		sys.exit("data created")
+	# if create_data_beam and reload_:
+	# 	create_data(f_log_probs_beam, prepare_data, model_options, train, maxlen, 'train')
+	# 	create_data(f_log_probs_beam, prepare_data, model_options, valid, maxlen, 'valid')
+	# 	create_data(f_log_probs_beam, prepare_data, model_options, other, maxlen, 'test')
+	# 	sys.exit("data created")
+	if (train_beam_model or use_beam_model) and reload_:
+		params_beam = param_init_beam_model(model_options, nin=model_options['dim_word'])
+		tparams_beam = init_tparams(params_beam)
+		x, y, cost_beam, preds = build_beam_model(tparams_beam, model_options)
+
+		inps = [x, y]
+		f_pred_beam = theano.function(inps, [cost_beam, preds], profile=profile)
+
+		cost_beam = cost_beam.mean()
+
+		grads_beam = tensor.grad(cost_beam, wrt=itemlist(tparams_beam))
+		f_grad_shared_beam, f_update_beam = eval(optimizer)(lr, tparams_beam, grads_beam, inps, cost_beam)
+	
+	if train_beam_model and reload_:
+		for eidx in xrange(max_epochs):
+			train_model_beam(f_create_data_beam, f_grad_shared_beam, f_update_beam, prepare_data, model_options, train, maxlen)
+
+			valid_error = pred_model_beam(f_create_data_beam, f_pred_beam, prepare_data, model_options, valid, maxlen)
+			test_error = pred_model_beam(f_create_data_beam, f_pred_beam, prepare_data, model_options, other, maxlen)
+
+			print 'Epoch: '+str(eidx)
+			print 'Valid error: '+str(valid_error)
+			print 'Test error: '+str(test_error)
+			print '*******************************'
+		sys.exit("beam model trained")
 	########################################################################
 
 

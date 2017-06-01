@@ -121,7 +121,7 @@ validerr, testerr, validbleu, testbleu , nb_epoch, nb_batch = train(saveto=model
                                                                     rng=1234,
                                                                     trng=1234,
                                                                     save_inter=True, #save all the time
-                                                                    create_data_beam=True,
+                                                                    train_beam_model=True,
                                                                     multibleu='multi-bleu.perl',
                                                                     valid_output=dirPathOutput+'/valid_output.s2.2',
                                                                     other_output=dirPathOutput+'/other_output.s2.2')
