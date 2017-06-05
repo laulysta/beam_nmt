@@ -2164,6 +2164,8 @@ def build_model(tparams, options):
 	probs = tensor.nnet.softmax(logit.reshape([logit_shp[0]*logit_shp[1],
 											   logit_shp[2]]))
 
+	proj_logit_h = concatenate([proj_h, logit_h], axis=proj_h.ndim-1)
+
 	# cost
 	y_flat = y.flatten()
 	y_flat_idx = tensor.arange(y_flat.shape[0]) * options['n_words'] + y_flat
@@ -2179,7 +2181,7 @@ def build_model(tparams, options):
 
 	pred = probs.argmax(axis=1)
 	correct_pred = (pred - y_flat) # 0 for good predictions, other values for bad ones
-	return trng, use_noise, x, x_mask, y, y_mask, opt_ret, logit_h, correct_pred, cost, cost_
+	return trng, use_noise, x, x_mask, y, y_mask, opt_ret, proj_logit_h, correct_pred, cost, cost_
 
 
 # build a sampler
@@ -2657,7 +2659,7 @@ def train_model_beam(f_create_data_beam, f_grad_shared_beam, f_update_beam, prep
 	lrate = options['lrate']
 
 	nb_examples = options['batch_size']*maxlen
-	data = numpy.zeros([nb_examples, options['dim_word']], dtype='float32')
+	data = numpy.zeros([nb_examples, options['dim_word']+options['dim']], dtype='float32')
 	list_target = numpy.zeros(nb_examples, dtype='float32')
 	for x, y in iterator:
 
@@ -2702,7 +2704,7 @@ def pred_model_beam(f_create_data_beam, f_pred_beam, prepare_data, options, iter
 	lrate = options['lrate']
 
 	nb_examples = options['batch_size']*maxlen
-	data = numpy.zeros([nb_examples, options['dim_word']], dtype='float32')
+	data = numpy.zeros([nb_examples, options['dim_word']+options['dim']], dtype='float32')
 	list_target = numpy.zeros(nb_examples, dtype='float32')
 	nb_errors = 0
 	nb_total = 0
@@ -3161,7 +3163,7 @@ def train(rng=123,
 	# 	create_data(f_log_probs_beam, prepare_data, model_options, other, maxlen, 'test')
 	# 	sys.exit("data created")
 	if (train_beam_model or use_beam_model) and reload_:
-		params_beam = param_init_beam_model(model_options, nin=model_options['dim_word'])
+		params_beam = param_init_beam_model(model_options, nin=model_options['dim_word']+model_options['dim'])
 		tparams_beam = init_tparams(params_beam)
 		x, y, cost_beam, preds = build_beam_model(tparams_beam, model_options)
 
