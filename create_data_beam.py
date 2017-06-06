@@ -66,6 +66,24 @@ elif dataset == "europarl_en_de":
     #batch_size = 64
     nb_batch_epoch = np.ceil(sizeTrainset/batch_size)
 
+elif dataset == "beam_europarl_en_de":
+    n_words_src=20000
+    n_words_trg=20000
+    datasets=['../data/beam_europarl_de-en_txt.tok.low/small_europarl-v7.de-en.en.toc.low', 
+              '../data/beam_europarl_de-en_txt.tok.low/small_europarl-v7.de-en.de.toc.low']
+    valid_datasets=['../data/beam_europarl_de-en_txt.tok.low/newstest2015-ende-src.en.toc.low', 
+                    '../data/beam_europarl_de-en_txt.tok.low/newstest2015-ende-ref.de.toc.low',
+                    '../data/beam_europarl_de-en_txt.tok.low/newstest2015-ende-ref.de.toc.low']
+    other_datasets=['../data/beam_europarl_de-en_txt.tok.low/newstest2016-ende-src.en.toc.low', 
+                    '../data/beam_europarl_de-en_txt.tok.low/newstest2016-ende-ref.de.toc.low',
+                    '../data/beam_europarl_de-en_txt.tok.low/newstest2016-ende-ref.de.toc.low']
+    dictionaries=['../data/beam_europarl_de-en_txt.tok.low/vocab_en.pkl', 
+                  '../data/beam_europarl_de-en_txt.tok.low/vocab_de.pkl']
+
+    sizeTrainset = 384043.0
+    #batch_size = 64
+    nb_batch_epoch = np.ceil(sizeTrainset/batch_size)
+
 
 
 if reload_path != '':

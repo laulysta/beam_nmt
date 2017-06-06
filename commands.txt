@@ -6,6 +6,13 @@ python train_baseline.py -dw 10 -d 20 -data testing -r saved_models_baseline/mod
 qsub_launcher -t 168:00:00 python -u train_baseline.py -dw 620 -d 800\ 1000 \1200 -data europarl_en_de
 
 
+
+
+ qsub_launcher -t 48:00:00 python -u create_data_beam.py -dw 620 -d 1000 -data europarl_en_de -r best_baseline/model_gru_europarl_ende_620_1000_0.001_64_5_150020_4_120016_14_420056.npz
+
+
+
+
 #SBATCH
 
 squeue -u sl174
