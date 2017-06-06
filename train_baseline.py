@@ -58,6 +58,8 @@ if reload_path == '':
     elif dataset == "europarl_en_de":
         dirModelName = "model_gru_europarl_ende_" + str_options
     else:
+        dirModelName = "model_gru_beam_europarl_ende_" + str_options
+    else:
         sys.exit("Wrong dataset")
 
     dirPathModel = pjoin(dirPath, dirModelName)
