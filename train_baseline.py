@@ -57,7 +57,7 @@ if reload_path == '':
         dirModelName = "model_gru_testing_ende_" + str_options
     elif dataset == "europarl_en_de":
         dirModelName = "model_gru_europarl_ende_" + str_options
-    else:
+    elif dataset == "beam_europarl_en_de":
         dirModelName = "model_gru_beam_europarl_ende_" + str_options
     else:
         sys.exit("Wrong dataset")
