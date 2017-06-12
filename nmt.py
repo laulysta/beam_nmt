@@ -2015,12 +2015,12 @@ def param_init_beam_model(options, nin=None):
 	params['beam_W_0'] = W_0
 	params['beam_b_0'] = numpy.zeros((nin,)).astype('float32')
 
-	# for t in range(options['nb_layers_tnn'] - 1):
-	#     wName = 'W_' + str(t + 1)
-	#     W = init_weight(nhid, nhid)
-	#     params[_p(prefix, wName)] = W
-	#     bName = 'b_' + str(t + 1)
-	#     params[_p(prefix, bName)] = numpy.zeros((nhid,)).astype('float32')
+	for t in range(options['nb_layers_beam'] - 1):
+	    wName = 'beam_W_' + str(t + 1)
+	    W = norm_weight(nin, nin, rng=rng)
+	    params[wName] = W
+	    bName = 'beam_b_' + str(t + 1)
+	    params[bName] = numpy.zeros((nin,)).astype('float32')
 
 	V = norm_weight(nin, 1, rng=rng)
 	params['beam_V'] = V
@@ -2036,10 +2036,10 @@ def build_beam_model(tparams, options, activ='lambda x: tensor.tanh(x)'):
 
 	h = eval(activ)(tensor.dot(x, tparams['beam_W_0']) + tparams['beam_b_0'])
 
-	# for t in range(options['nb_layers_tnn'] - 1):
-	#     wName = 'W_' + str(t + 1)
-	#     bName = 'b_' + str(t + 1)
-	#     h = eval(activ)(tensor.dot(h, tparams[_p(prefix, wName)]) + tparams[_p(prefix, bName)])
+	for t in range(options['nb_layers_beam'] - 1):
+	    wName = 'beam_W_' + str(t + 1)
+	    bName = 'beam_b_' + str(t + 1)
+	    h = eval(activ)(tensor.dot(h, tparams[wName]) + tparams[bName])
 
 
 	probs = tensor.nnet.sigmoid(tensor.dot(h, tparams['beam_V']) + tparams['beam_c']).T
@@ -2164,7 +2164,7 @@ def build_model(tparams, options):
 	probs = tensor.nnet.softmax(logit.reshape([logit_shp[0]*logit_shp[1],
 											   logit_shp[2]]))
 
-	proj_logit_h = concatenate([proj_h, logit_h], axis=proj_h.ndim-1)
+	#proj_logit_h = concatenate([proj_h, logit_h], axis=proj_h.ndim-1)
 
 	# cost
 	y_flat = y.flatten()
@@ -2181,7 +2181,7 @@ def build_model(tparams, options):
 
 	pred = probs.argmax(axis=1)
 	correct_pred = (pred - y_flat) # 0 for good predictions, other values for bad ones
-	return trng, use_noise, x, x_mask, y, y_mask, opt_ret, proj_logit_h, correct_pred, cost, cost_
+	return trng, use_noise, x, x_mask, y, y_mask, opt_ret, logit_h, correct_pred, cost, cost_
 
 
 # build a sampler
@@ -2659,7 +2659,7 @@ def train_model_beam(f_create_data_beam, f_grad_shared_beam, f_update_beam, prep
 	lrate = options['lrate']
 
 	nb_examples = options['batch_size']*maxlen
-	data = numpy.zeros([nb_examples, options['dim_word']+options['dim']], dtype='float32')
+	data = numpy.zeros([nb_examples, options['dim_word']], dtype='float32')
 	list_target = numpy.zeros(nb_examples, dtype='float32')
 	for x, y in iterator:
 
@@ -2704,7 +2704,7 @@ def pred_model_beam(f_create_data_beam, f_pred_beam, prepare_data, options, iter
 	lrate = options['lrate']
 
 	nb_examples = options['batch_size']*maxlen
-	data = numpy.zeros([nb_examples, options['dim_word']+options['dim']], dtype='float32')
+	data = numpy.zeros([nb_examples, options['dim_word']], dtype='float32')
 	list_target = numpy.zeros(nb_examples, dtype='float32')
 	nb_errors = 0
 	nb_total = 0
@@ -2998,6 +2998,7 @@ def train(rng=123,
 		  save_inter=False,
 		  train_beam_model=False,
 		  use_beam_model=False,
+		  nb_layers_beam=3,
 		  **kwargs):
 
 	# Model options
@@ -3163,7 +3164,7 @@ def train(rng=123,
 	# 	create_data(f_log_probs_beam, prepare_data, model_options, other, maxlen, 'test')
 	# 	sys.exit("data created")
 	if (train_beam_model or use_beam_model) and reload_:
-		params_beam = param_init_beam_model(model_options, nin=model_options['dim_word']+model_options['dim'])
+		params_beam = param_init_beam_model(model_options, nin=model_options['dim_word'])
 		tparams_beam = init_tparams(params_beam)
 		x, y, cost_beam, preds = build_beam_model(tparams_beam, model_options)
 
