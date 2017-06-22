@@ -2618,6 +2618,7 @@ def gen_sample_beam(tparams, f_init_2, f_next_2, x, x_mask, options, trng=None, 
 					#next_state_mean += next_state
 				else:
 					next_p_mean += next_p * use_other_w
+				kk += 1	
 
 			denom = 1 + use_other_w
 			next_p = next_p_mean/denom[:,None]
@@ -2636,6 +2637,7 @@ def gen_sample_beam(tparams, f_init_2, f_next_2, x, x_mask, options, trng=None, 
 			# for i, p in enumerate(next_p):
 			# 	print p[next_n_w[i]]
 			# print next_n_p
+			# print denom
 			# print '******************************'
 
 
