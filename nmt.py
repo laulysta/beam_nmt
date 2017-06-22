@@ -2617,7 +2617,7 @@ def gen_sample_beam(tparams, f_init_2, f_next_2, x, x_mask, options, trng=None, 
 					next_p_mean += next_p
 					#next_state_mean += next_state
 				else:
-					next_p_mean += next_p * use_other_w
+					next_p_mean += next_p * use_other_w[:,None]
 				kk += 1	
 
 			denom = 1 + use_other_w
