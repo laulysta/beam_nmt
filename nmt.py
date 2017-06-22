@@ -2579,6 +2579,77 @@ def gen_sample_2(tparams, f_init_2, f_next_2, x, x_mask, options, trng=None, max
 
 ########
 
+def gen_sample_beam(tparams, f_init_2, f_next_2, x, x_mask, options, trng=None, maxlen=30, **kwargs):
+
+	# Always stochastic, always argmax
+	N=2
+	diff_max = 0.2
+	sample = []
+
+	# get initial state of decoder rnn and encoder context
+	ret = f_init_2(x, x_mask)
+	next_state, ctx = ret[0], ret[1]
+	#ipdb.set_trace()
+	next_w = -1 * numpy.ones((x.shape[1],)).astype('int64')  # bos indicator
+	
+	for ii in xrange(maxlen):
+		if next_w[0] == -1:
+			inps = [next_w, ctx, next_state, x_mask]
+			ret = f_next_2(*inps)
+			next_p, next_w, next_state = ret[0], ret[1], ret[2]
+
+			next_n_w = numpy.argpartition(next_p, -N, axis=1)[:, -N:]
+			next_n_p = numpy.partition(next_p, -N, axis=1)[:, -N:]
+			next_w = next_n_w[:,-1]
+
+			diff = 1 - (next_n_p[:,0]/next_n_p[:,-1])
+			use_other_w= 1.0 * (diff <= diff_max)
+		else:
+			
+			next_p_mean = numpy.zeros_like(next_p)
+			next_state_mean = numpy.zeros_like(next_state)
+			kk = 0
+			for jj in range(N)[::-1]:
+				inps = [next_n_w[:,jj], ctx, next_state, x_mask]
+				ret = f_next_2(*inps)
+				next_p, next_w, next_state = ret[0], ret[1], ret[2]
+				if kk == 0:
+					next_p_mean += next_p
+					#next_state_mean += next_state
+				else:
+					next_p_mean += next_p * use_other_w
+
+			denom = 1 + use_other_w
+			next_p = next_p_mean/denom[:,None]
+			#next_state = next_state_mean/N
+			
+			next_n_w = numpy.argpartition(next_p, -N, axis=1)[:, -N:]
+			next_n_p = numpy.partition(next_p, -N, axis=1)[:, -N:]
+			next_w = next_n_w[:,-1]
+
+			diff = 1 - (next_n_p[:,0]/next_n_p[:,-1])
+			use_other_w= 1.0 * (diff <= diff_max)
+			# print '******************************'
+			# next_w_argmax = next_p.argmax(1)
+			# #print next_p
+			# #print next_p.shape
+			# for i, p in enumerate(next_p):
+			# 	print p[next_n_w[i]]
+			# print next_n_p
+			# print '******************************'
+
+
+
+		sample.append(next_w)
+
+	sample = numpy.asarray(sample)
+	sample = sample.T
+
+	#print sample.shape # n_samples x timesteps
+
+	return sample
+
+
 # calculate the log probablities on a given corpus using translation model
 def pred_probs(f_log_probs, prepare_data, options, iterator, verbose=False, **kwargs):
 	probs = []
@@ -2762,7 +2833,7 @@ def greedy_decoding(options, reference, iterator, worddicts_r, tparams, prepare_
 											n_words_src=options['n_words_src'],
 											n_words=options['n_words'])
 
-		samples = gen_sample_2(tparams, f_init_2, f_next_2,
+		samples = gen_sample_beam(tparams, f_init_2, f_next_2,
 								   x, x_mask,
 								   options, trng=trng,
 								   maxlen=maxlen)
@@ -3189,7 +3260,44 @@ def train(rng=123,
 			print '*******************************'
 		sys.exit("beam model trained")
 	########################################################################
+	use_noise.set_value(0.)
 
+	ml = model_options['kwargs'].get('valid_maxlen', 100)
+	valid_fname = model_options['kwargs'].get('valid_output', 'output/valid_output')
+	multibleu = model_options['kwargs'].get('multibleu', os.path.join(os.path.expanduser('~'), "Documents/Git/mosesdecoder/scripts/generic/multi-bleu.perl"))
+	#try:
+	valid_out, valid_bleu = greedy_decoding(model_options, valid_datasets[2], valid_noshuf, worddicts_r, tparams, prepare_data, gen_sample_2, f_init_2, f_next_2, trng,
+		   multibleu, fname=valid_fname, maxlen=ml, verbose=False)
+	#except:
+	#	valid_out = ''
+	#	valid_bleu = 0.0
+
+	valid_errs = pred_probs(f_log_probs, prepare_data,
+							model_options, valid, verbose=False)
+	valid_err = valid_errs.mean()
+
+	if 'other_datasets' in kwargs:
+		other_errs = pred_probs(f_log_probs, prepare_data,
+								model_options, other, verbose=False)
+		other_err = other_errs.mean()
+		other_fname = model_options['kwargs'].get('other_output', 'output/other_output')
+		#try:
+		other_out, other_bleu = greedy_decoding(model_options, kwargs['other_datasets'][2], other_noshuf, worddicts_r, tparams, prepare_data, gen_sample_2, f_init_2, f_next_2, trng,
+				   multibleu, fname=other_fname, maxlen=ml, verbose=False)
+		#except:
+		#	other_out = ''
+		#	other_bleu = 0.0
+
+		print 'Other ', other_err
+		print 'Valid ', valid_err
+		print 'Other BLEU', other_out,
+		print 'Valid BLEU', valid_out,
+	else:
+		print 'Valid ', valid_err
+		print 'Valid BLEU', valid_out
+
+	sys.exit("BLEU computed")
+	########################################################################
 
 	if validFreq == -1:
 		validFreq = len(train[0])/batch_size
