@@ -15,7 +15,7 @@ parser.add_argument('-d', '--dim_model', required=False, default='200', help='Si
 parser.add_argument('-l', '--lr', required=False, default='0.001', help='learning rate')
 parser.add_argument('-r', '--reload_path', required=False, default='', help='ex: pathModel.npz')
 parser.add_argument('-data', '--dataset', required=False, default='testing', help='ex: testing, europarl')
-parser.add_argument('-m', '--model', required=False, default='baseline', help='ex: baseline, lbc, lbc_tot')
+parser.add_argument('-m', '--model', required=False, default='baseline', help='ex: baseline, dark')
 parser.add_argument('-bs', '--batch_size', required=False, default='64', help='Size of the batch')
 parser.add_argument('-out', '--out_dir', required=False, default='.', help='Output directory for the model')
 parser.add_argument('-p', '--patience', required=False, default='5', help='Patience')
@@ -157,10 +157,8 @@ saveFreq = nb_batch_epoch
 use_dropout = True
 if model == 'baseline':
     decoder = 'gru_cond_legacy'
-elif model == 'lbc':
-    decoder = 'gru_cond_legacy_lbc'
-elif model == 'lbc_tot':
-    decoder = 'gru_cond_legacy_lbc_tot'
+elif model == 'dark':
+    decoder = 'gru_cond_legacy_dark'
 else:
     sys.exit("Wrong arg model")
 
