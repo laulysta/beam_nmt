@@ -706,7 +706,8 @@ def gru_cond_legacy_dark_layer(tparams, state_below, options, prefix='gru_cond_l
 
 
 		#pred = tensor.argmax(pred_score, axis=1)
-		preds = (probs.argsort(axis=1)[:,::-1])[:,:5]
+		#preds = (probs.argsort(axis=1)[:,::-1])[:,:5]
+		preds = tensor.argtopk(probs, 5, sorted=False, axis=1)
 		tmp = tensor.zeros_like(preds)+tensor.arange(preds.shape[0])[:,None]
 		preds_s = pred_score[tmp,preds]
 		preds_p = preds_s / preds_s.sum(1, keepdims=True)
