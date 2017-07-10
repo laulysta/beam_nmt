@@ -606,7 +606,8 @@ def gru_cond_legacy_dark_layer(tparams, state_below, options, prefix='gru_cond_l
 	if state_below.ndim == 3:
 		n_samples = state_below.shape[1]
 	else:
-		n_samples = 1
+		n_samples = state_below.shape[0]
+		#n_samples = 1
 
 	# mask
 	if mask is None:  # sampling or beamsearch
@@ -2745,7 +2746,7 @@ def gen_sample_2(tparams, f_init_2, f_next_2, x, x_mask, options, trng=None, max
 	if options['decoder'].startswith('lstm'):
 		next_state, ctx, next_memory = ret[0], ret[1], ret[2]
 	elif options['decoder'] == 'gru_cond_legacy_dark':
-		next_state, ctx0, next_dark_rep = ret[0], ret[1], ret[2]
+		next_state, ctx, next_dark_rep = ret[0], ret[1], ret[2]
 	else:
 		next_state, ctx = ret[0], ret[1]
 	next_w = -1 * numpy.ones((x.shape[1],)).astype('int64')  # bos indicator
@@ -3597,12 +3598,12 @@ def train(rng=123,
 				ml = model_options['kwargs'].get('valid_maxlen', 100)
 				valid_fname = model_options['kwargs'].get('valid_output', 'output/valid_output')
 				multibleu = model_options['kwargs'].get('multibleu', os.path.join(os.path.expanduser('~'), "Documents/Git/mosesdecoder/scripts/generic/multi-bleu.perl"))
-				try:
-					valid_out, valid_bleu = greedy_decoding(model_options, valid_datasets[2], valid_noshuf, worddicts_r, tparams, prepare_data, gen_sample_2, f_init_2, f_next_2, trng,
+				#try:
+				valid_out, valid_bleu = greedy_decoding(model_options, valid_datasets[2], valid_noshuf, worddicts_r, tparams, prepare_data, gen_sample_2, f_init_2, f_next_2, trng,
 					   multibleu, fname=valid_fname, maxlen=ml, verbose=False)
-				except:
-					valid_out = ''
-					valid_bleu = 0.0
+				# except:
+				# 	valid_out = ''
+				# 	valid_bleu = 0.0
 
 				history_errs.append(valid_bleu)
 
