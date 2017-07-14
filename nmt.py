@@ -706,12 +706,55 @@ def gru_cond_legacy_dark_layer(tparams, state_below, options, prefix='gru_cond_l
 		probs = tensor.nnet.softmax(pred_score)
 
 
-		#pred = tensor.argmax(pred_score, axis=1)
-		#preds = (probs.argsort(axis=1)[:,::-1])[:,:5]
-		preds = tensor.argtopk(probs, 5, sorted=False, axis=1)
-		tmp = tensor.zeros_like(preds)+tensor.arange(preds.shape[0])[:,None]
-		preds_s = pred_score[tmp,preds]
+		# #pred = tensor.argmax(pred_score, axis=1)
+		# #preds = (probs.argsort(axis=1)[:,::-1])[:,:5]
+		# preds = tensor.argtopk(probs, 5, sorted=False, axis=1)
+		# tmp = tensor.zeros_like(preds)+tensor.arange(preds.shape[0])[:,None]
+		# preds_s = pred_score[tmp,preds]
+		# preds_p = preds_s / preds_s.sum(1, keepdims=True)
+
+
+		##### topk #####
+		preds = tensor.zeros([n_samples, 5], dtype='int64')
+		preds_s = tensor.zeros([n_samples, 5])
+
+		pred = tensor.argmax(probs, axis=1)
+		r = tensor.arange(pred.shape[0])
+		v = probs[r, pred]
+		preds = tensor.set_subtensor(preds[:,0], pred)
+		preds_s = tensor.set_subtensor(preds_s[:,0], v)
+		probs_tmp = tensor.set_subtensor(probs[r,pred], tensor.zeros([n_samples]))
+
+		pred = tensor.argmax(probs_tmp, axis=1)
+		r = tensor.arange(pred.shape[0])
+		v = probs[r, pred]
+		preds = tensor.set_subtensor(preds[:,1], pred)
+		preds_s = tensor.set_subtensor(preds_s[:,1], v)
+		probs_tmp = tensor.set_subtensor(probs_tmp[r,pred], tensor.zeros([n_samples]))
+
+		pred = tensor.argmax(probs_tmp, axis=1)
+		r = tensor.arange(pred.shape[0])
+		v = probs[r, pred]
+		preds = tensor.set_subtensor(preds[:,2], pred)
+		preds_s = tensor.set_subtensor(preds_s[:,2], v)
+		probs_tmp = tensor.set_subtensor(probs_tmp[r,pred], tensor.zeros([n_samples]))
+
+		pred = tensor.argmax(probs_tmp, axis=1)
+		r = tensor.arange(pred.shape[0])
+		v = probs[r, pred]
+		preds = tensor.set_subtensor(preds[:,3], pred)
+		preds_s = tensor.set_subtensor(preds_s[:,3], v)
+		probs_tmp = tensor.set_subtensor(probs_tmp[r,pred], tensor.zeros([n_samples]))
+
+		pred = tensor.argmax(probs_tmp, axis=1)
+		r = tensor.arange(pred.shape[0])
+		v = probs[r, pred]
+		preds = tensor.set_subtensor(preds[:,4], pred)
+		preds_s = tensor.set_subtensor(preds_s[:,4], v)
+		probs_tmp = tensor.set_subtensor(probs_tmp[r,pred], tensor.zeros([n_samples]))
+
 		preds_p = preds_s / preds_s.sum(1, keepdims=True)
+		################
 
 		emb = Wemb[preds.T.flatten()]
 		emb = emb.reshape([5, n_samples, options['dim_word']])
