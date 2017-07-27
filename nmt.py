@@ -715,53 +715,60 @@ def gru_cond_legacy_dark_layer(tparams, state_below, options, prefix='gru_cond_l
 
 
 		##### topk #####
-		preds = tensor.zeros([n_samples, 5], dtype='int64')
-		preds_s = tensor.zeros([n_samples, 5])
+		# preds = tensor.zeros([n_samples, 5], dtype='int64')
+		# preds_s = tensor.zeros([n_samples, 5])
+
+		# pred = tensor.argmax(probs, axis=1)
+		# r = tensor.arange(pred.shape[0])
+		# v = probs[r, pred]
+		# preds = tensor.set_subtensor(preds[:,0], pred)
+		# preds_s = tensor.set_subtensor(preds_s[:,0], v)
+		# probs_tmp = tensor.set_subtensor(probs[r,pred], tensor.zeros([n_samples]))
+
+		# pred = tensor.argmax(probs_tmp, axis=1)
+		# r = tensor.arange(pred.shape[0])
+		# v = probs[r, pred]
+		# preds = tensor.set_subtensor(preds[:,1], pred)
+		# preds_s = tensor.set_subtensor(preds_s[:,1], v)
+		# probs_tmp = tensor.set_subtensor(probs_tmp[r,pred], tensor.zeros([n_samples]))
+
+		# pred = tensor.argmax(probs_tmp, axis=1)
+		# r = tensor.arange(pred.shape[0])
+		# v = probs[r, pred]
+		# preds = tensor.set_subtensor(preds[:,2], pred)
+		# preds_s = tensor.set_subtensor(preds_s[:,2], v)
+		# probs_tmp = tensor.set_subtensor(probs_tmp[r,pred], tensor.zeros([n_samples]))
+
+		# pred = tensor.argmax(probs_tmp, axis=1)
+		# r = tensor.arange(pred.shape[0])
+		# v = probs[r, pred]
+		# preds = tensor.set_subtensor(preds[:,3], pred)
+		# preds_s = tensor.set_subtensor(preds_s[:,3], v)
+		# probs_tmp = tensor.set_subtensor(probs_tmp[r,pred], tensor.zeros([n_samples]))
+
+		# pred = tensor.argmax(probs_tmp, axis=1)
+		# r = tensor.arange(pred.shape[0])
+		# v = probs[r, pred]
+		# preds = tensor.set_subtensor(preds[:,4], pred)
+		# preds_s = tensor.set_subtensor(preds_s[:,4], v)
+		# probs_tmp = tensor.set_subtensor(probs_tmp[r,pred], tensor.zeros([n_samples]))
+
+		# preds_p = preds_s / preds_s.sum(1, keepdims=True)
+		# ################
+
+		# emb = Wemb[preds.T.flatten()]
+		# emb = emb.reshape([5, n_samples, options['dim_word']])
+
+		# dark_rep = (emb * preds_p.T[:, :, None]).sum(0)
+
+		#####################################################
 
 		pred = tensor.argmax(probs, axis=1)
 		r = tensor.arange(pred.shape[0])
-		v = probs[r, pred]
-		preds = tensor.set_subtensor(preds[:,0], pred)
-		preds_s = tensor.set_subtensor(preds_s[:,0], v)
 		probs_tmp = tensor.set_subtensor(probs[r,pred], tensor.zeros([n_samples]))
 
-		pred = tensor.argmax(probs_tmp, axis=1)
-		r = tensor.arange(pred.shape[0])
-		v = probs[r, pred]
-		preds = tensor.set_subtensor(preds[:,1], pred)
-		preds_s = tensor.set_subtensor(preds_s[:,1], v)
-		probs_tmp = tensor.set_subtensor(probs_tmp[r,pred], tensor.zeros([n_samples]))
-
-		pred = tensor.argmax(probs_tmp, axis=1)
-		r = tensor.arange(pred.shape[0])
-		v = probs[r, pred]
-		preds = tensor.set_subtensor(preds[:,2], pred)
-		preds_s = tensor.set_subtensor(preds_s[:,2], v)
-		probs_tmp = tensor.set_subtensor(probs_tmp[r,pred], tensor.zeros([n_samples]))
-
-		pred = tensor.argmax(probs_tmp, axis=1)
-		r = tensor.arange(pred.shape[0])
-		v = probs[r, pred]
-		preds = tensor.set_subtensor(preds[:,3], pred)
-		preds_s = tensor.set_subtensor(preds_s[:,3], v)
-		probs_tmp = tensor.set_subtensor(probs_tmp[r,pred], tensor.zeros([n_samples]))
-
-		pred = tensor.argmax(probs_tmp, axis=1)
-		r = tensor.arange(pred.shape[0])
-		v = probs[r, pred]
-		preds = tensor.set_subtensor(preds[:,4], pred)
-		preds_s = tensor.set_subtensor(preds_s[:,4], v)
-		probs_tmp = tensor.set_subtensor(probs_tmp[r,pred], tensor.zeros([n_samples]))
-
-		preds_p = preds_s / preds_s.sum(1, keepdims=True)
-		################
-
-		emb = Wemb[preds.T.flatten()]
-		emb = emb.reshape([5, n_samples, options['dim_word']])
-
-		dark_rep = (emb * preds_p.T[:, :, None]).sum(0)
-
-		#####################################################
+		pred2 = tensor.argmax(probs_tmp, axis=1)
+		dark_rep = Wemb[pred2]
 
 		return h, ctx_, alpha.T, probs, dark_rep
 
