@@ -19,6 +19,8 @@ parser.add_argument('-m', '--model', required=False, default='baseline', help='e
 parser.add_argument('-bs', '--batch_size', required=False, default='64', help='Size of the batch')
 parser.add_argument('-out', '--out_dir', required=False, default='.', help='Output directory for the model')
 parser.add_argument('-p', '--patience', required=False, default='5', help='Patience')
+parser.add_argument('-es', '--entropy_s_gate', required=False, default='False', help='Entropy gate source')
+parser.add_argument('-ed', '--entropy_disconnected_grad', required=False, default='False', help='Entropy stop grad')
 
 #parser.add_argument('-ec', '--euclidean_coeff', default=0.1, type=float, help='Coefficient of the Euclidean distance in the cost (if coverage vector is used).')
 #parser.add_argument('-ca', '--covVec_in_attention', action="store_true", help='Coverage vector connected to the attentional part.')
@@ -37,13 +39,15 @@ model = str(args.model)
 batch_size = int(args.batch_size)
 reload_path = args.reload_path
 patience = int(args.patience)
+entropy_s_gate = eval(args.entropy_s_gate)
+entropy_disconnected_grad = eval(args.entropy_disconnected_grad)
 
-list_options = [str(model), str(dim_word), str(dim_model), str(lr), str(batch_size), str(patience)]
+list_options = [str(model), str(dim_word), str(dim_model), str(lr), str(batch_size), str(patience), str(entropy_s_gate), str(entropy_disconnected_grad)]
 
 #Create names and folders
 ####################################################################################
 if reload_path == '':
-    dirPath = pjoin(args.out_dir, 'saved_models_' + model)
+    dirPath = pjoin(args.out_dir, 'saved_models_entropy_' + model)
     if not os.path.exists(dirPath):
         try:
             os.makedirs(dirPath)
@@ -197,7 +201,9 @@ validerr, testerr, validbleu, testbleu , nb_epoch, nb_batch = train(saveto=model
                                                                     save_inter=True, #save all the time
                                                                     multibleu='multi-bleu.perl',
                                                                     valid_output=dirPathOutput+'/valid_output.s2.2',
-                                                                    other_output=dirPathOutput+'/other_output.s2.2')
+                                                                    other_output=dirPathOutput+'/other_output.s2.2',
+                                                                    entropy_s_gate=entropy_s_gate,
+                                                                    entropy_disconnected_grad=entropy_disconnected_grad)
 
 # Prepare result line to append to result file
 line = "\t".join([str(dirModelName), str(dataset)] + list_options + [str(nb_epoch), str(nb_batch), str(validerr), str(testerr), str(validbleu), str(testbleu)]) + "\n"

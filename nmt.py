@@ -2350,6 +2350,17 @@ def build_model(tparams, options):
 	# weights (alignment matrix)
 	opt_ret['dec_alphas'] = proj[2]
 
+	if options['kwargs'].get('entropy_s_gate', False):
+		#xc_mask_2: t_ctx x n_samples
+		s_alpha__ = opt_ret['dec_alphas'] # t_y x n_samples x t_ctx
+		entropy = -(s_alpha__ * tensor.log(tensor.clip(s_alpha__, 1e-6, 1)) * x_mask.T[None, :, :]).sum(-1)
+		n_ = x_mask.sum(0)[None, :]
+		gate = (tensor.log(n_) - entropy) / tensor.log(n_+1e-6)
+		gate = gate[:,:,None]
+		if options['kwargs'].get('entropy_disconnected_grad', False):
+			gate = theano.gradient.disconnected_grad(gate)
+
+		
 	if options['decoder'] == 'gru_cond_legacy_dark':
 		logit = proj[3]
 		logit_shp = logit.shape
@@ -2362,6 +2373,10 @@ def build_model(tparams, options):
 										prefix='ff_logit_prev', activ='linear')
 		logit_ctx = get_layer('ff')[1](tparams, ctxs, options,
 									   prefix='ff_logit_ctx', activ='linear')
+
+		if options['kwargs'].get('entropy_s_gate', False):
+			logit_ctx = gate * logit_ctx
+
 		logit_h = tensor.tanh(logit_lstm+logit_prev+logit_ctx)
 		if options['use_dropout']:
 			logit_h = dropout_layer(logit_h, use_noise, trng, p=1.0-options['kwargs'].get('use_dropout_p', 0.5))
@@ -2388,6 +2403,7 @@ def build_model(tparams, options):
 # build a sampler
 def build_sampler(tparams, options, trng, use_noise=None):
 	x = tensor.matrix('x', dtype='int64')
+	x_mask = tensor.matrix('x_mask', dtype='float32')
 	xr = x[::-1]
 	n_timesteps = x.shape[0]
 	n_samples = x.shape[1]
@@ -2468,6 +2484,14 @@ def build_sampler(tparams, options, trng, use_noise=None):
 	# get the weighted averages of context for this target word y
 	ctxs = proj[1]
 
+	if options['kwargs'].get('entropy_s_gate', False):
+		#xc_mask_2: t_ctx x n_samples
+		s_alpha__ = proj[2] # n_samples x t_ctx
+		entropy = -(s_alpha__ * tensor.log(tensor.clip(s_alpha__, 1e-6, 1)) * x_mask.T).sum(-1)
+		n_ = x_mask.sum(0)
+		gate = (tensor.log(n_) - entropy) / tensor.log(n_+1e-6)
+		gate = gate[:,None]
+
 	if options['decoder'] == 'gru_cond_legacy_dark':
 		next_probs = proj[3]
 		next_dark_rep = proj[4]
@@ -2478,6 +2502,10 @@ def build_sampler(tparams, options, trng, use_noise=None):
 										prefix='ff_logit_prev', activ='linear')
 		logit_ctx = get_layer('ff')[1](tparams, ctxs, options,
 									   prefix='ff_logit_ctx', activ='linear')
+
+		if options['kwargs'].get('entropy_s_gate', False):
+			logit_ctx = gate * logit_ctx
+
 		logit = tensor.tanh(logit_lstm+logit_prev+logit_ctx)
 		if options['use_dropout']:
 			logit = dropout_layer(logit, use_noise, trng, p=1.0-options['kwargs'].get('use_dropout_p', 0.5))
@@ -2500,7 +2528,7 @@ def build_sampler(tparams, options, trng, use_noise=None):
 		inps = [y, ctx, init_state, init_dark_rep]
 		outs = [next_probs, next_sample, next_state, next_dark_rep]
 	else:
-		inps = [y, ctx, init_state]
+		inps = [y, ctx, init_state, x_mask]
 		outs = [next_probs, next_sample, next_state]
 	f_next = theano.function(inps, outs, name='f_next', profile=profile)
 	print 'Done'
@@ -2510,7 +2538,7 @@ def build_sampler(tparams, options, trng, use_noise=None):
 
 # generate sample, either with stochastic sampling or beam search. Note that,
 # this function iteratively calls f_init and f_next functions.
-def gen_sample(tparams, f_init, f_next, x, options, trng=None, k=1, maxlen=30,
+def gen_sample(tparams, f_init, f_next, x, x_mask, options, trng=None, k=1, maxlen=30,
 			   stochastic=True, argmax=False, **kwargs):
 
 	# k is the beam size we have
@@ -2551,7 +2579,7 @@ def gen_sample(tparams, f_init, f_next, x, options, trng=None, k=1, maxlen=30,
 		elif options['decoder'] == 'gru_cond_legacy_dark':
 			inps = [next_w, ctx, next_state, next_dark_rep]
 		else:
-			inps = [next_w, ctx, next_state]
+			inps = [next_w, ctx, next_state, x_mask]
 		ret = f_next(*inps)
 		if options['decoder'].startswith('lstm'):
 			next_p, next_w, next_state, next_memory = ret[0], ret[1], ret[2], ret[3]
@@ -2746,6 +2774,14 @@ def build_sampler_2(tparams, options, trng, use_noise=None):
 	# get the weighted averages of context for this target word y
 	ctxs = proj[1]
 
+	if options['kwargs'].get('entropy_s_gate', False):
+		#xc_mask_2: t_ctx x n_samples
+		s_alpha__ = proj[2] # n_samples x t_ctx
+		entropy = -(s_alpha__ * tensor.log(tensor.clip(s_alpha__, 1e-6, 1)) * x_mask.T).sum(-1)
+		n_ = x_mask.sum(0)
+		gate = (tensor.log(n_) - entropy) / tensor.log(n_+1e-6)
+		gate = gate[:,None]
+
 	if options['decoder'] == 'gru_cond_legacy_dark':
 		next_probs = proj[3]
 		next_dark_rep = proj[4]
@@ -2756,6 +2792,10 @@ def build_sampler_2(tparams, options, trng, use_noise=None):
 										prefix='ff_logit_prev', activ='linear')
 		logit_ctx = get_layer('ff')[1](tparams, ctxs, options,
 									   prefix='ff_logit_ctx', activ='linear')
+
+		if options['kwargs'].get('entropy_s_gate', False):
+			logit_ctx = gate * logit_ctx
+		
 		logit = tensor.tanh(logit_lstm+logit_prev+logit_ctx)
 		if options['use_dropout']:
 			logit = dropout_layer(logit, use_noise, trng, p=1.0-options['kwargs'].get('use_dropout_p', 0.5))
@@ -3603,7 +3643,7 @@ def train(rng=123,
 				for jj in xrange(numpy.minimum(5, x.shape[1])):
 					stochastic = True
 					sample, score = gen_sample(tparams, f_init, f_next,
-											   x[:, jj][:, None],
+											   x[:, jj][:, None], x_mask[:, jj][:, None],
 											   model_options, trng=trng, k=1,
 											   maxlen=30,
 											   stochastic=stochastic,
